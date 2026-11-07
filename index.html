@@ -208,7 +208,7 @@ function syncLanguage(){
  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
  let node;
  while((node=walker.nextNode())){
-  if(node.parentElement?.closest('script,style'))continue;
+  if(node.parentElement?.closest('script,style,select,option'))continue;
   const previous=translatedNodes.get(node);
   // Distinguish newly rendered content from our own translated content.
   const source=previous&&node.nodeValue===previous.displayed?previous.source:node.nodeValue;
@@ -218,13 +218,14 @@ function syncLanguage(){
  }
  translationBusy=false;
 }
-let pendingTranslation=false;
-const languageObserver=new MutationObserver(()=>{
- if(translationBusy||pendingTranslation)return;
- pendingTranslation=true;
- queueMicrotask(()=>{pendingTranslation=false;syncLanguage()});
-});
-languageObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
+// No document-wide MutationObserver: repeated translations could lock the browser.
+// Update translations only after relevant UI changes.
+const originalRenderForLocale=render;
+render=function(...args){const result=originalRenderForLocale(...args);syncLanguage();return result;};
+const originalSayForLocale=say;
+say=function(...args){const result=originalSayForLocale(...args);syncLanguage();return result;};
+const originalModalForLocale=modal;
+modal=function(...args){const result=originalModalForLocale(...args);syncLanguage();return result;};
 const prevSettings=showSettings;
 showSettings=function(back='pause'){prevSettings(back);syncLanguage()};window.showSettings=showSettings;
 const prevPrefs=savePrefs;
@@ -449,7 +450,7 @@ const descriptionsJa={...itemDescriptions,toy:'5秒間、苦手な場所をな�
 (function(){
  const tray=document.createElement('div');tray.id='snackTray';tray.className='snack-tray';
  tray.innerHTML='<div class="snack-tray-title"></div><div class="snack-tray-items" id="snackTrayItems"></div>';
- document.getElementById('stage').appendChild(tray);
+ document.querySelector('.main').insertAdjacentElement('afterend',tray);
  const toolKeys=['brush','toy'];
  const snackKeys=['sweet','chicken','paste','bone','can','water','milk','soup'];
  renderItems=function(){
@@ -539,5 +540,13 @@ queueMicrotask(()=>{if(screen==='title')showTitle();renderItems();syncLanguage()
 .snack-tray .item.selected{background:#ffe5d8;border-color:#dc9d82;}
 .snack-tray .item .icon svg{width:24px;height:24px}.snack-tray .item small{font-size:10px;}
 @media(max-width:730px){.stage-tools{width:69px!important}.snack-tray{left:84px;right:6px;bottom:5px;padding:5px}.snack-tray .item{flex-basis:70px;min-width:70px;font-size:10px;min-height:59px}.snack-tray-title{font-size:11px}}
+
+/* The snack shelf belongs to the full-width yellow panel, below the game. */
+#snackTray.snack-tray{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;z-index:1!important;margin:0 22px 22px!important;padding:12px 14px!important;width:auto!important;background:#fff8e9!important;box-sizing:border-box!important;}
+#snackTray .snack-tray-title{font-size:14px!important;margin-bottom:9px!important;}
+#snackTray .snack-tray-items{display:grid!important;grid-template-columns:repeat(8,minmax(0,1fr))!important;gap:8px!important;overflow:visible!important;padding:0!important;}
+#snackTray .item{width:100%!important;min-width:0!important;min-height:78px!important;box-sizing:border-box!important;overflow-wrap:anywhere!important;}
+#snackTray .item .icon svg{width:28px!important;height:28px!important;}
+@media(max-width:760px){#snackTray .snack-tray-items{grid-template-columns:repeat(4,minmax(0,1fr))!important}#snackTray.snack-tray{margin:0 10px 12px!important;padding:9px!important}}
 </style>
 </body></html>
